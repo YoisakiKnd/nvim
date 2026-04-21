@@ -1,0 +1,29 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# swap files
+*.swo
+*.swp
+*.bak
+*~
+
+# Neovim specific
+.nvim/
+.nvim.lua
+.nvimrc
+.exrc
+
+# Node / Python
+node_modules/
+__pycache__/
+*.pyc
+
+# Local config overrides
+lua/custom/
