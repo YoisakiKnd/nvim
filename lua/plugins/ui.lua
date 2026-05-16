@@ -105,13 +105,13 @@ return {
     dependencies = { "MunifTanjim/nui.nvim", "rcarriga/nvim-notify" },
     opts = {
       cmdline = {
-        enabled = false, -- 禁用 Noice 的命令行
+        enabled = false,
       },
       messages = {
-        enabled = false, -- 禁用 Noice 的消息拦截，否则它会把 cmdheight 强制设为 0
+        enabled = false,
       },
       popupmenu = {
-        enabled = false, -- 禁用 Noice 的弹窗菜单，使用原生的 cmp-cmdline
+        enabled = false,
       },
       lsp = {
         override = {
@@ -128,7 +128,6 @@ return {
       },
     },
     init = function()
-      -- 强制恢复原生的命令行高度，确保底部留有输入空间
       vim.opt.cmdheight = 1
     end,
   },

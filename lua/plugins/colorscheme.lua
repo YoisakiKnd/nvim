@@ -10,12 +10,12 @@ return {
     priority = 1000,
     lazy = false,
     opts = {
-      flavour = "mocha", -- 保持暗色模式，文字是护眼的浅色
+      flavour = "mocha",
       background = {
         light = "latte",
         dark  = "mocha",
       },
-      transparent_background = false, -- 必须关掉，否则自定义的背景色会变成完全透明
+      transparent_background = false,
       show_end_of_buffer = false,
       term_colors = true,
       dim_inactive = {
@@ -23,14 +23,12 @@ return {
         shade      = "dark",
         percentage = 0.15,
       },
-      -- 护眼暗绿 (Forest/Matcha) 方案：
-      -- 把背景替换为非常有质感的深绿色，搭配 0.65 的透明度会形成深绿色的毛玻璃
       color_overrides = {
         mocha = {
-          base     = "#222b24", -- 主背景：深邃的墨绿/森林绿
-          mantle   = "#1a211b", -- 侧边栏/浮窗：稍微再深一点
-          crust    = "#131814", -- 边缘：最深的绿色
-          lavender = "#a6e3a1", -- 强调色：保留你最初喜欢的明亮抹茶绿
+          base     = "#222b24",
+          mantle   = "#1a211b",
+          crust    = "#131814",
+          lavender = "#a6e3a1",
         },
       },
       styles = {
