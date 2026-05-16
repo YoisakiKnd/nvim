@@ -28,7 +28,6 @@ require("lazy").setup({
   spec = {
     { import = "plugins" }, -- 自动加载 lua/plugins/ 下所有文件
   },
-  defaults = { lazy = false },
   install = { colorscheme = { "catppuccin" } },
   checker = { enabled = true, notify = false }, -- 自动检查插件更新
   performance = {

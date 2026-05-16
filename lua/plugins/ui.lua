@@ -71,9 +71,12 @@ return {
       spec = {
         { "<leader>b", group = "Buffer" },
         { "<leader>c", group = "Code" },
-        { "<leader>f", group = "查找" },
+        { "<leader>f", group = "查找/文件" },
         { "<leader>g", group = "Git" },
         { "<leader>l", group = "LSP" },
+        { "<leader>q", group = "退出/会话" },
+        { "<leader>t", group = "TODO" },
+        { "<leader>w", group = "保存" },
       },
     },
   },
@@ -124,8 +127,7 @@ return {
         lsp_doc_border        = true,
       },
     },
-    config = function(_, opts)
-      require("noice").setup(opts)
+    init = function()
       -- 强制恢复原生的命令行高度，确保底部留有输入空间
       vim.opt.cmdheight = 1
     end,

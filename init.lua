@@ -6,6 +6,7 @@
 -- 加载核心配置
 require("config.options")
 require("config.keymaps")
+require("config.autocmds")
 
 -- 引导并启动 lazy.nvim
 require("config.lazy")

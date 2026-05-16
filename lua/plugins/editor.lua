@@ -150,4 +150,31 @@ return {
     event = "VeryLazy",
     opts = {},
   },
+  -- CodeCompanion AI聊天
+  {
+    "olimorris/codecompanion.nvim",
+    version = "^19.0.0",
+    opts = {
+      interactions = {
+        chat = {
+          adapter = {
+            name = "deepseek",
+            model = "deepseek-v4-pro"
+          },
+        },
+      },
+    },
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+      "nvim-treesitter/nvim-treesitter",
+      },
+  },
+  -- Lazygit Git管理
+  {
+    "kdheepak/lazygit.nvim",
+    dependencies = { "nvim-lua/plenary.nvim" },
+    keys = {
+      { "<leader>gg", "<cmd>LazyGit<cr>", desc = "打开 LazyGit" },
+    },
+  },
 }
