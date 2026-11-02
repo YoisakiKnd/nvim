@@ -15,12 +15,24 @@ return {
   config = function()
     local ts = require("nvim-treesitter")
 
-    if vim.fn.executable("tree-sitter") == 1 then
+    local function missing()
       local installed = {}
       for _, lang in ipairs(ts.get_installed()) do installed[lang] = true end
-      local missing = vim.tbl_filter(function(lang) return not installed[lang] end, parsers)
-      if #missing > 0 then ts.install(missing) end
-    else
+      return vim.tbl_filter(function(lang) return not installed[lang] end, parsers)
+    end
+
+    -- 一次编译全部解析器并等待完成，供安装脚本在无界面模式下调用
+    vim.api.nvim_create_user_command("TSInstallAll", function()
+      local list = missing()
+      if #list > 0 then ts.install(list):wait(30 * 60 * 1000) end
+    end, { desc = "编译全部配置的语法解析器" })
+
+    local headless = #vim.api.nvim_list_uis() == 0
+    if vim.fn.executable("tree-sitter") == 1 then
+      -- 无界面模式由 :TSInstallAll 负责，避免同时编译两次
+      local list = headless and {} or missing()
+      if #list > 0 then ts.install(list) end
+    elseif not headless then
       vim.schedule(function()
         vim.notify("未找到 tree-sitter 命令行，暂时只有内置语言有语法高亮。安装方法见 README", vim.log.levels.WARN)
       end)

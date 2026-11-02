@@ -31,12 +31,20 @@ xcode-select --install   # C 编译器，装过 Xcode 命令行工具可跳过
 
 ### Windows
 
+用安装脚本一步装好（PowerShell 运行）：
+
 ```powershell
-scoop install neovim git ripgrep fd tree-sitter
-scoop bucket add extras; scoop install lazygit
+irm https://raw.githubusercontent.com/YoisakiKnd/nvim/main/install.ps1 -OutFile install.ps1
+powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-C 编译器推荐安装 Visual Studio Build Tools（勾选"使用 C++ 的桌面开发"）。Windows 上的解析器编译还没有实测过，遇到问题先看 `:checkhealth nvim-treesitter`。
+脚本会：
+- 用 Scoop 安装 Neovim、git、ripgrep、fd、tree-sitter、lazygit（没有 Scoop 时先询问是否安装）
+- 安装缺少的 Node.js、Python、Go、JDK 21；已有 JDK 但低于 21 时只提示，不改 `JAVA_HOME`
+- 检查 MSVC，缺少时询问是否用 winget 安装 VS Build Tools（编译语法解析器用，约 2–6 GB）
+- 克隆配置到 `%LOCALAPPDATA%\nvim-lite`，装好插件、解析器和语言服务后启动
+
+可以重复运行，已安装的会跳过。常用参数：`-Languages java,python` 只装部分工具链，`-AppName nvim` 直接作为默认配置，`-InstallBuildTools` 不询问直接装编译器，`-NoLaunch` 装完不启动。
 
 ## 安装
 

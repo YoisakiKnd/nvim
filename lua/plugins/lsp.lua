@@ -7,8 +7,8 @@ local tools = {
   { "marksman" }, -- Markdown：标题跳转、链接补全
   { "lemminx" }, -- XML：pom.xml
   { "jdtls", needs = { "java" } }, -- Java / Spring Boot，需要 JDK 21+
-  { "basedpyright", needs = { "python3", "python" } },
-  { "ruff", needs = { "python3", "python" } },
+  { "basedpyright", needs = { "python3", "python" }, probe = true },
+  { "ruff", needs = { "python3", "python" }, probe = true },
   { "gopls", needs = { "go" } },
   { "goimports", needs = { "go" } },
   { "gofumpt", needs = { "go" } },
@@ -23,20 +23,32 @@ local tools = {
 local function installable(tool)
   if not tool.needs then return true end
   for _, cmd in ipairs(tool.needs) do
-    if vim.fn.executable(cmd) == 1 then return true end
+    if vim.fn.executable(cmd) == 1 then
+      -- Windows 自带的 python/python3 别名只会打开应用商店，要实际运行一次确认
+      if not tool.probe or vim.system({ cmd, "--version" }):wait().code == 0 then return true end
+    end
   end
   return false
 end
 
-local function ensure_tools()
+-- 本机可以安装、但还没装的 mason 包
+local function missing_tools()
   local registry = require("mason-registry")
-  registry.refresh(function()
-    for _, tool in ipairs(tools) do
-      local ok, pkg = pcall(registry.get_package, tool[1])
-      if ok and installable(tool) and not pkg:is_installed() and not pkg:is_installing() then
-        vim.notify("mason：正在安装 " .. tool[1])
-        pkg:install()
-      end
+  local names = {}
+  for _, tool in ipairs(tools) do
+    local ok, pkg = pcall(registry.get_package, tool[1])
+    if ok and not pkg:is_installed() and not pkg:is_installing() and installable(tool) then
+      names[#names + 1] = tool[1]
+    end
+  end
+  return names
+end
+
+local function ensure_tools()
+  require("mason-registry").refresh(function()
+    for _, name in ipairs(missing_tools()) do
+      vim.notify("mason：正在安装 " .. name)
+      require("mason-registry").get_package(name):install()
     end
   end)
 end
@@ -102,13 +114,23 @@ return {
   {
     "neovim/nvim-lspconfig",
     event = { "BufReadPre", "BufNewFile" },
+    init = function()
+      -- 一次装好全部语言服务；无界面模式（安装脚本）下会等到装完
+      vim.api.nvim_create_user_command("MasonToolsInstall", function()
+        require("mason-registry").refresh()
+        local names = missing_tools()
+        if #names == 0 then
+          print("语言服务都已安装")
+          return
+        end
+        vim.cmd("MasonInstall " .. table.concat(names, " "))
+      end, { desc = "安装本机可用的全部语言服务和格式化工具" })
+    end,
     dependencies = {
       "mason-org/mason.nvim",
       "mason-org/mason-lspconfig.nvim",
     },
     config = function()
-      require("mason").setup({ ui = { border = "rounded" } })
-
       -- Spring Boot 项目常用 Lombok：mason 的 jdtls 自带 lombok.jar
       local lombok = vim.fn.stdpath("data") .. "/mason/packages/jdtls/lombok.jar"
       if vim.uv.fs_stat(lombok) and not vim.env.JDTLS_JVM_ARGS then
