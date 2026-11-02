@@ -9,7 +9,7 @@
 - **Neovim 0.12 或更新版本**（CodeCompanion v19 和新版 nvim-treesitter 都要求 0.12）
 - git、curl、[ripgrep](https://github.com/BurntSushi/ripgrep)（全局搜索）
 - [Nerd Font](https://www.nerdfonts.com/) 字体，例如 Maple Mono NF CN
-- **tree-sitter 命令行 0.26.1+ 和 C 编译器**：用于编译语法解析器。缺少时只有 Neovim 内置的 Lua、Markdown、Vim 等语言有精确高亮，启动时会提示一次
+- 可选：**tree-sitter 命令行 0.26.1+ 和 C 编译器**，用于编译语法解析器，见下面的"语法解析器"
 - 可选：[lazygit](https://github.com/jesseduffield/lazygit)（`<leader>gg`）、fd（加快文件查找）
 
 各语言的语言服务由 Mason 自动安装，但需要本机先有对应工具链，没有的会跳过：
@@ -39,12 +39,21 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
 脚本会：
-- 用 Scoop 安装 Neovim、git、ripgrep、fd、tree-sitter、lazygit（没有 Scoop 时先询问是否安装）
+- 用 Scoop 安装 Neovim、git、ripgrep、fd、lazygit（没有 Scoop 时先询问是否安装）
 - 安装缺少的 Node.js、Python、Go、JDK 21；已有 JDK 但低于 21 时只提示，不改 `JAVA_HOME`
-- 检查 MSVC，缺少时询问是否用 winget 安装 VS Build Tools（编译语法解析器用，约 2–6 GB）
-- 克隆配置到 `%LOCALAPPDATA%\nvim-lite`，装好插件、解析器和语言服务后启动
+- 克隆配置到 `%LOCALAPPDATA%\nvim-lite`，装好插件和语言服务后启动
 
-可以重复运行，已安装的会跳过。常用参数：`-Languages java,python` 只装部分工具链，`-AppName nvim` 直接作为默认配置，`-InstallBuildTools` 不询问直接装编译器，`-NoLaunch` 装完不启动。
+默认不编译语法解析器。想要编译时加 `-WithParsers`：会安装 tree-sitter，检查 MSVC，缺少时询问是否用 winget 安装 VS Build Tools（约 2–6 GB）。
+
+可以重复运行，已安装的会跳过。其他参数：`-Languages java,python` 只装部分工具链，`-AppName nvim` 直接作为默认配置，`-InstallBuildTools` 配合 `-WithParsers` 不询问直接装编译器，`-NoLaunch` 装完不启动。
+
+### 语法解析器（可选）
+
+不编译也能正常使用：Neovim 自带各语言的正则语法高亮，语言服务连上后再叠加语义高亮（类型、字段、参数、注解分别着色，VS Code 也是这种方式）；Markdown、Lua、Vim 的解析器是 Neovim 内置的，博客渲染不受影响。
+
+编译解析器后多出来的：Markdown 代码块里的 Java/Go 等代码着色、按语法结构折叠（否则按缩进）、语言服务启动前的几秒也有精确高亮。
+
+检测到 tree-sitter 命令行（Windows 上还要检测到 MSVC）时，启动后会在后台自动编译，也可以手动运行 `:TSInstallAll`。
 
 ## 安装
 

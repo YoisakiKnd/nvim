@@ -51,11 +51,11 @@ opt.virtualedit = "block"
 opt.completeopt = "menu,menuone,noselect"
 opt.shortmess:append({ W = true, I = true, c = true, C = true })
 
--- 用 Tree-sitter 折叠，打开文件时默认全部展开
+-- 默认按缩进折叠；有 Tree-sitter 解析器的文件改为按语法结构（见 plugins/treesitter.lua）
+-- 打开文件时全部展开
 opt.foldlevel = 99
 opt.foldlevelstart = 99
-opt.foldmethod = "expr"
-opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+opt.foldmethod = "indent"
 opt.foldtext = ""
 
 -- 系统剪贴板放到启动之后再接入，避免拖慢启动（SSH 下走 OSC 52）
