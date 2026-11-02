@@ -1,74 +1,41 @@
--- ╔══════════════════════════════════════════════════════════════╗
--- ║                   Treesitter 语法高亮                       ║
--- ╚══════════════════════════════════════════════════════════════╝
+-- 语法高亮、折叠、缩进。解析器需要 tree-sitter 命令行和 C 编译器来编译
+local parsers = {
+  "bash", "css", "diff", "dockerfile", "git_config", "gitcommit", "gitignore",
+  "go", "gomod", "gosum", "html", "java", "javascript", "jsdoc", "json",
+  "lua", "luadoc", "markdown", "markdown_inline", "properties", "python",
+  "query", "regex", "sql", "toml", "tsx", "typescript", "vim", "vimdoc",
+  "xml", "yaml",
+}
 
 return {
-  {
-    "nvim-treesitter/nvim-treesitter",
-    build = ":TSUpdate",
-    event = { "BufReadPost", "BufNewFile" },
-    cmd   = { "TSInstall", "TSUpdate", "TSBufEnable", "TSBufDisable", "TSModuleInfo" },
-    dependencies = {
-      "nvim-treesitter/nvim-treesitter-textobjects",
-    },
-    opts = {
-      ensure_installed = {
-        -- 常用语言
-        "lua", "vim", "vimdoc", "query",
-        "python", "javascript", "typescript", "tsx",
-        "html", "css", "json", "jsonc", "yaml", "toml",
-        "bash", "fish", "regex", "markdown", "markdown_inline",
-        "c", "cpp", "rust", "go", "java",
-        "dockerfile", "gitignore", "git_config",
-      },
-      auto_install = true,  -- 打开文件时自动安装缺少的 parser
-      highlight = {
-        enable = true,
-        additional_vim_regex_highlighting = false,
-      },
-      indent = {
-        enable = true,
-      },
-      incremental_selection = {
-        enable = true,
-        keymaps = {
-          init_selection    = "<C-space>",
-          node_incremental  = "<C-space>",
-          scope_incremental = false,
-          node_decremental  = "<bs>",
-        },
-      },
-      textobjects = {
-        select = {
-          enable    = true,
-          lookahead = true,
-          keymaps   = {
-            ["af"] = { query = "@function.outer", desc = "选中函数(外)" },
-            ["if"] = { query = "@function.inner", desc = "选中函数(内)" },
-            ["ac"] = { query = "@class.outer",    desc = "选中类(外)" },
-            ["ic"] = { query = "@class.inner",    desc = "选中类(内)" },
-            ["aa"] = { query = "@parameter.outer", desc = "选中参数(外)" },
-            ["ia"] = { query = "@parameter.inner", desc = "选中参数(内)" },
-          },
-        },
-        move = {
-          enable = true,
-          set_jumps = true,
-          goto_next_start = {
-            ["]f"] = { query = "@function.outer", desc = "下一个函数" },
-            ["]c"] = { query = "@class.outer",    desc = "下一个类" },
-          },
-          goto_previous_start = {
-            ["[f"] = { query = "@function.outer", desc = "上一个函数" },
-            ["[c"] = { query = "@class.outer",    desc = "上一个类" },
-          },
-        },
-        swap = {
-          enable = true,
-          swap_next     = { ["<leader>a"] = "@parameter.inner" },
-          swap_previous = { ["<leader>A"] = "@parameter.inner" },
-        },
-      },
-    },
-  },
+  "nvim-treesitter/nvim-treesitter",
+  branch = "main",
+  lazy = false, -- 本插件不支持延迟加载
+  build = ":TSUpdate",
+  config = function()
+    local ts = require("nvim-treesitter")
+
+    if vim.fn.executable("tree-sitter") == 1 then
+      local installed = {}
+      for _, lang in ipairs(ts.get_installed()) do installed[lang] = true end
+      local missing = vim.tbl_filter(function(lang) return not installed[lang] end, parsers)
+      if #missing > 0 then ts.install(missing) end
+    else
+      vim.schedule(function()
+        vim.notify("未找到 tree-sitter 命令行，暂时只有内置语言有语法高亮。安装方法见 README", vim.log.levels.WARN)
+      end)
+    end
+
+    vim.api.nvim_create_autocmd("FileType", {
+      group = vim.api.nvim_create_augroup("user_treesitter", { clear = true }),
+      callback = function(event)
+        -- 没有对应解析器时 start 会失败，保留普通高亮
+        if not pcall(vim.treesitter.start, event.buf) then return end
+        local lang = vim.treesitter.language.get_lang(vim.bo[event.buf].filetype)
+        if lang and lang ~= "markdown" and lang ~= "yaml" then
+          vim.bo[event.buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+        end
+      end,
+    })
+  end,
 }

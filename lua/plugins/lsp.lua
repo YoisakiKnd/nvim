@@ -1,278 +1,133 @@
--- ╔══════════════════════════════════════════════════════════════╗
--- ║              Mason + LSP + 自动补全 配置                    ║
--- ╚══════════════════════════════════════════════════════════════╝
+-- 语言服务：mason 负责安装，nvim-lspconfig 提供各服务器的默认配置，Neovim 自带的 vim.lsp 负责启动
+
+-- mason 包名，以及安装它需要的外部命令（满足其一即可）。缺少时跳过，不报安装失败
+local tools = {
+  { "lua-language-server" },
+  { "stylua" },
+  { "marksman" }, -- Markdown：标题跳转、链接补全
+  { "lemminx" }, -- XML：pom.xml
+  { "jdtls", needs = { "java" } }, -- Java / Spring Boot，需要 JDK 21+
+  { "basedpyright", needs = { "python3", "python" } },
+  { "ruff", needs = { "python3", "python" } },
+  { "gopls", needs = { "go" } },
+  { "goimports", needs = { "go" } },
+  { "gofumpt", needs = { "go" } },
+  { "vtsls", needs = { "npm" } }, -- JavaScript / TypeScript
+  { "json-lsp", needs = { "npm" } },
+  { "yaml-language-server", needs = { "npm" } }, -- application.yml 等
+  { "html-lsp", needs = { "npm" } },
+  { "css-lsp", needs = { "npm" } },
+  { "prettier", needs = { "npm" } },
+}
+
+local function installable(tool)
+  if not tool.needs then return true end
+  for _, cmd in ipairs(tool.needs) do
+    if vim.fn.executable(cmd) == 1 then return true end
+  end
+  return false
+end
+
+local function ensure_tools()
+  local registry = require("mason-registry")
+  registry.refresh(function()
+    for _, tool in ipairs(tools) do
+      local ok, pkg = pcall(registry.get_package, tool[1])
+      if ok and installable(tool) and not pkg:is_installed() and not pkg:is_installing() then
+        vim.notify("mason：正在安装 " .. tool[1])
+        pkg:install()
+      end
+    end
+  end)
+end
+
+-- 各语言服务器在默认配置之上的设置
+local servers = {
+  lua_ls = {
+    settings = {
+      Lua = {
+        runtime = { version = "LuaJIT" },
+        workspace = { checkThirdParty = false, library = { vim.env.VIMRUNTIME } },
+        diagnostics = { globals = { "vim", "Snacks" } },
+        completion = { callSnippet = "Replace" },
+        hint = { enable = true },
+      },
+    },
+  },
+  gopls = {
+    settings = {
+      gopls = {
+        gofumpt = true,
+        usePlaceholders = true,
+        staticcheck = true,
+        hints = { parameterNames = true, assignVariableTypes = true, compositeLiteralFields = true },
+      },
+    },
+  },
+  basedpyright = {
+    settings = { basedpyright = { analysis = { typeCheckingMode = "standard" } } },
+  },
+  vtsls = {
+    settings = {
+      typescript = { inlayHints = { parameterNames = { enabled = "literals" } } },
+    },
+  },
+}
+
+local function on_attach(event)
+  local buf = event.buf
+  local function map(lhs, rhs, desc, mode)
+    vim.keymap.set(mode or "n", lhs, rhs, { buffer = buf, desc = desc, nowait = true })
+  end
+  map("gd", function() Snacks.picker.lsp_definitions() end, "跳到定义")
+  map("gD", vim.lsp.buf.declaration, "跳到声明")
+  map("gr", function() Snacks.picker.lsp_references() end, "查找引用")
+  map("gI", function() Snacks.picker.lsp_implementations() end, "跳到实现")
+  map("gy", function() Snacks.picker.lsp_type_definitions() end, "跳到类型定义")
+  map("K", function() vim.lsp.buf.hover() end, "悬停说明")
+  map("<F2>", vim.lsp.buf.rename, "重命名")
+  map("<leader>cr", vim.lsp.buf.rename, "重命名")
+  map("<leader>ca", vim.lsp.buf.code_action, "代码操作", { "n", "x" })
+  map("<leader>cl", "<cmd>checkhealth vim.lsp<cr>", "语言服务状态")
+end
 
 return {
-  -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  -- Mason: LSP / DAP / Linter / Formatter 管理器
-  -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   {
-    "williamboman/mason.nvim",
-    cmd  = "Mason",
-    build = ":MasonUpdate",
-    opts = {
-      ui = {
-        border = "rounded",
-        icons  = {
-          package_installed   = "✓",
-          package_pending     = "➜",
-          package_uninstalled = "✗",
-        },
-        height = 0.8,
-      },
-    },
+    "mason-org/mason.nvim",
+    cmd = { "Mason", "MasonInstall", "MasonUpdate" },
+    keys = { { "<leader>cm", "<cmd>Mason<cr>", desc = "Mason 工具管理" } },
+    opts = { ui = { border = "rounded" } },
   },
 
-  -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  -- mason-lspconfig: Mason 与 lspconfig 的桥梁
-  -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  {
-    "williamboman/mason-lspconfig.nvim",
-    dependencies = { "williamboman/mason.nvim" },
-    opts = {
-      ensure_installed = {
-        "lua_ls",           -- Lua
-        "pyright",          -- Python
-        "ts_ls",            -- TypeScript / JavaScript
-        "html",             -- HTML
-        "cssls",            -- CSS
-        "jsonls",           -- JSON
-        "yamlls",           -- YAML
-        "bashls",           -- Bash
-        "clangd",           -- C / C++
-        "rust_analyzer",    -- Rust
-      },
-      automatic_installation = true,
-    },
-  },
-
-  -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  -- nvim-lspconfig: LSP 客户端配置
-  -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   {
     "neovim/nvim-lspconfig",
     event = { "BufReadPre", "BufNewFile" },
     dependencies = {
-      "williamboman/mason.nvim",
-      "williamboman/mason-lspconfig.nvim",
-      "hrsh7th/cmp-nvim-lsp",
+      "mason-org/mason.nvim",
+      "mason-org/mason-lspconfig.nvim",
     },
     config = function()
-      local lspconfig = require("lspconfig")
-      local mason_lspconfig = require("mason-lspconfig")
-      local cmp_lsp = require("cmp_nvim_lsp")
+      require("mason").setup({ ui = { border = "rounded" } })
 
-      -- 增强补全能力
-      local capabilities = vim.tbl_deep_extend(
-        "force",
-        {},
-        vim.lsp.protocol.make_client_capabilities(),
-        cmp_lsp.default_capabilities()
-      )
-
-      -- 诊断图标
-      local signs = {
-        Error = " ",
-        Warn  = " ",
-        Hint  = "󰌵 ",
-        Info  = " ",
-      }
-      for type, icon in pairs(signs) do
-        local hl = "DiagnosticSign" .. type
-        vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = "" })
+      -- Spring Boot 项目常用 Lombok：mason 的 jdtls 自带 lombok.jar
+      local lombok = vim.fn.stdpath("data") .. "/mason/packages/jdtls/lombok.jar"
+      if vim.uv.fs_stat(lombok) and not vim.env.JDTLS_JVM_ARGS then
+        vim.env.JDTLS_JVM_ARGS = "-javaagent:" .. lombok
       end
 
-      -- 诊断全局配置
-      vim.diagnostic.config({
-        virtual_text = {
-          prefix = "●",
-          spacing = 4,
-        },
-        signs          = true,
-        underline      = true,
-        update_in_insert = false,
-        severity_sort  = true,
-        float = {
-          focusable = false,
-          style     = "minimal",
-          border    = "rounded",
-          source    = true,
-          header    = "",
-          prefix    = "",
-        },
-      })
-
-      -- 悬浮窗口圆角边框
-      vim.lsp.handlers["textDocument/hover"] = vim.lsp.with(
-        vim.lsp.handlers.hover, { border = "rounded" }
-      )
-      vim.lsp.handlers["textDocument/signatureHelp"] = vim.lsp.with(
-        vim.lsp.handlers.signature_help, { border = "rounded" }
-      )
-
-      -- ── on_attach: 每个 LSP 连接时绑定快捷键 ──────────────
-      local on_attach = function(_, bufnr)
-        local map = function(keys, func, desc)
-          vim.keymap.set("n", keys, func, { buffer = bufnr, desc = "LSP: " .. desc })
-        end
-
-        map("gd",         vim.lsp.buf.definition,      "跳转定义")
-        map("gD",         vim.lsp.buf.declaration,      "跳转声明")
-        map("gi",         vim.lsp.buf.implementation,   "跳转实现")
-        map("gr",         vim.lsp.buf.references,       "查看引用")
-        map("K",          vim.lsp.buf.hover,            "悬浮文档")
-        map("<leader>ca", vim.lsp.buf.code_action,      "代码操作")
-        map("<leader>rn", vim.lsp.buf.rename,           "重命名")
-        map("<leader>D",  vim.lsp.buf.type_definition,  "类型定义")
-        map("<C-k>",      vim.lsp.buf.signature_help,   "签名帮助")
+      vim.lsp.config("*", { capabilities = require("blink.cmp").get_lsp_capabilities() })
+      for name, config in pairs(servers) do
+        vim.lsp.config(name, config)
       end
 
-      -- ── 针对各 LSP 的特殊配置 ─────────────────────────────
-      local server_settings = {
-        lua_ls = {
-          settings = {
-            Lua = {
-              runtime    = { version = "LuaJIT" },
-              diagnostics = { globals = { "vim" } },
-              workspace  = {
-                library = vim.api.nvim_get_runtime_file("", true),
-                checkThirdParty = false,
-              },
-              telemetry  = { enable = false },
-              completion = { callSnippet = "Replace" },
-            },
-          },
-        },
-        pyright = {
-          settings = {
-            python = {
-              analysis = {
-                typeCheckingMode = "basic",
-                autoSearchPaths  = true,
-                useLibraryCodeForTypes = true,
-              },
-            },
-          },
-        },
-        jsonls = {
-          settings = {
-            json = {
-              validate = { enable = true },
-            },
-          },
-        },
-      }
-
-      -- ── 统一注册所有 Mason 安装的 LSP ─────────────────────
-      mason_lspconfig.setup_handlers({
-        -- 默认处理
-        function(server_name)
-          local server_opts = server_settings[server_name] or {}
-          server_opts.capabilities = capabilities
-          server_opts.on_attach    = on_attach
-          lspconfig[server_name].setup(server_opts)
-        end,
-      })
-    end,
-  },
-
-  -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  -- nvim-cmp: 自动补全引擎
-  -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  {
-    "hrsh7th/nvim-cmp",
-    event = "InsertEnter",
-    dependencies = {
-      "hrsh7th/cmp-nvim-lsp",     -- LSP 补全源
-      "hrsh7th/cmp-buffer",       -- Buffer 补全源
-      "hrsh7th/cmp-path",         -- 路径补全源
-      "hrsh7th/cmp-cmdline",      -- 命令行补全
-      "saadparwaiz1/cmp_luasnip", -- Snippet 补全源
-      "L3MON4D3/LuaSnip",        -- Snippet 引擎
-      "rafamadriz/friendly-snippets", -- 预置代码片段
-      "onsails/lspkind.nvim",     -- 补全图标
-    },
-    config = function()
-      local cmp     = require("cmp")
-      local luasnip = require("luasnip")
-      local lspkind = require("lspkind")
-
-      -- 加载 friendly-snippets
-      require("luasnip.loaders.from_vscode").lazy_load()
-
-      cmp.setup({
-        snippet = {
-          expand = function(args)
-            luasnip.lsp_expand(args.body)
-          end,
-        },
-        window = {
-          completion    = cmp.config.window.bordered(),
-          documentation = cmp.config.window.bordered(),
-        },
-        mapping = cmp.mapping.preset.insert({
-          ["<C-b>"]     = cmp.mapping.scroll_docs(-4),
-          ["<C-f>"]     = cmp.mapping.scroll_docs(4),
-          ["<C-Space>"] = cmp.mapping.complete(),
-          ["<C-e>"]     = cmp.mapping.abort(),
-          ["<CR>"]      = cmp.mapping.confirm({ select = true }),
-          ["<Tab>"]     = cmp.mapping(function(fallback)
-            if cmp.visible() then
-              cmp.select_next_item()
-            elseif luasnip.expand_or_jumpable() then
-              luasnip.expand_or_jump()
-            else
-              fallback()
-            end
-          end, { "i", "s" }),
-          ["<S-Tab>"]   = cmp.mapping(function(fallback)
-            if cmp.visible() then
-              cmp.select_prev_item()
-            elseif luasnip.jumpable(-1) then
-              luasnip.jump(-1)
-            else
-              fallback()
-            end
-          end, { "i", "s" }),
-        }),
-        sources = cmp.config.sources({
-          { name = "nvim_lsp", priority = 1000 },
-          { name = "luasnip",  priority = 750 },
-          { name = "buffer",   priority = 500 },
-          { name = "path",     priority = 250 },
-        }),
-        formatting = {
-          format = lspkind.cmp_format({
-            mode      = "symbol_text",
-            maxwidth  = 50,
-            ellipsis_char = "...",
-            menu = {
-              nvim_lsp = "[LSP]",
-              luasnip  = "[Snip]",
-              buffer   = "[Buf]",
-              path     = "[Path]",
-            },
-          }),
-        },
-        experimental = {
-          ghost_text = true,
-        },
+      vim.api.nvim_create_autocmd("LspAttach", {
+        group = vim.api.nvim_create_augroup("user_lsp_attach", { clear = true }),
+        callback = on_attach,
       })
 
-      -- 命令行 `/` 搜索补全
-      cmp.setup.cmdline("/", {
-        mapping = cmp.mapping.preset.cmdline(),
-        sources = { { name = "buffer" } },
-      })
-
-      -- 命令行 `:` 补全
-      cmp.setup.cmdline(":", {
-        mapping = cmp.mapping.preset.cmdline(),
-        sources = cmp.config.sources(
-          { { name = "path" } },
-          { { name = "cmdline" } }
-        ),
-      })
+      -- 已安装的服务器自动启用（包括之后通过 mason 新装的）
+      require("mason-lspconfig").setup({ automatic_enable = true })
+      ensure_tools()
     end,
   },
 }

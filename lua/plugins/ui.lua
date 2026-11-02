@@ -1,134 +1,111 @@
--- ╔══════════════════════════════════════════════════════════════╗
--- ║                      UI 增强插件                            ║
--- ╚══════════════════════════════════════════════════════════════╝
-
+-- 外观：VS Code 配色、顶部文件标签、底部状态栏、按键提示
 return {
-  -- Lualine 状态栏
   {
-    "nvim-lualine/lualine.nvim",
-    event = "VeryLazy",
-    dependencies = { "nvim-tree/nvim-web-devicons" },
-    opts = {
-      options = {
-        theme = "auto",
-        component_separators = { left = "", right = "" },
-        section_separators   = { left = "", right = "" },
-        globalstatus = true,
-      },
-      sections = {
-        lualine_a = { "mode" },
-        lualine_b = { "branch", "diff", "diagnostics" },
-        lualine_c = { { "filename", path = 1 } },
-        lualine_x = { "encoding", "fileformat", "filetype" },
-        lualine_y = { "progress" },
-        lualine_z = { "location" },
-      },
-    },
-  },
-
-  -- Bufferline 标签页
-  {
-    "akinsho/bufferline.nvim",
-    event = "VeryLazy",
-    dependencies = { "nvim-tree/nvim-web-devicons", "catppuccin/nvim" },
+    "Mofiqul/vscode.nvim",
+    lazy = false,
+    priority = 1000,
     config = function()
-      local highlights = {}
-      local ok, catppuccin_bl = pcall(require, "catppuccin.groups.integrations.bufferline")
-      if ok then
-        highlights = catppuccin_bl.get()
-      end
-      require("bufferline").setup({
-        options = {
-          mode = "buffers",
-          diagnostics = "nvim_lsp",
-          offsets = {
-            { filetype = "neo-tree", text = " 文件浏览器", separator = true },
-          },
-          separator_style = "slant",
-          always_show_bufferline = true,
-        },
-        highlights = highlights,
+      require("vscode").setup({
+        italic_comments = true,
+        disable_nvimtree_bg = true,
       })
+      vim.cmd.colorscheme("vscode")
     end,
   },
 
-  -- Indent Blankline 缩进线
   {
-    "lukas-reineke/indent-blankline.nvim",
-    event = { "BufReadPost", "BufNewFile" },
-    main = "ibl",
+    "akinsho/bufferline.nvim",
+    version = "*",
+    event = "VeryLazy",
+    keys = {
+      { "<leader>bp", "<cmd>BufferLineTogglePin<cr>", desc = "固定标签" },
+      { "<leader>bo", "<cmd>BufferLineCloseOthers<cr>", desc = "关闭其他标签" },
+      { "<leader>br", "<cmd>BufferLineCloseRight<cr>", desc = "关闭右侧标签" },
+      { "<leader>bl", "<cmd>BufferLineCloseLeft<cr>", desc = "关闭左侧标签" },
+      { "[b", "<cmd>BufferLineCyclePrev<cr>", desc = "上一个标签" },
+      { "]b", "<cmd>BufferLineCycleNext<cr>", desc = "下一个标签" },
+    },
     opts = {
-      indent = { char = "│" },
-      scope  = { show_start = false, show_end = false },
+      options = {
+        close_command = function(n) Snacks.bufdelete(n) end,
+        right_mouse_command = function(n) Snacks.bufdelete(n) end,
+        diagnostics = "nvim_lsp",
+        always_show_bufferline = true,
+        separator_style = "thin",
+        offsets = {
+          { filetype = "snacks_layout_box", text = "资源管理器", highlight = "Directory", text_align = "left" },
+          { filetype = "codecompanion", text = "AI", highlight = "Directory", text_align = "left" },
+        },
+      },
     },
   },
 
-  -- Which-key 快捷键提示
+  {
+    "nvim-lualine/lualine.nvim",
+    event = "VeryLazy",
+    init = function()
+      -- 加载前先留出空白状态栏，避免启动时闪一下
+      vim.o.statusline = " "
+    end,
+    opts = {
+      options = {
+        theme = "vscode",
+        globalstatus = true,
+        component_separators = "",
+        section_separators = "",
+        disabled_filetypes = { statusline = { "snacks_dashboard" } },
+      },
+      sections = {
+        lualine_a = { "mode" },
+        lualine_b = { "branch", "diff" },
+        lualine_c = { { "filename", path = 1 }, "diagnostics" },
+        lualine_x = {
+          {
+            function()
+              local names = {}
+              for _, client in ipairs(vim.lsp.get_clients({ bufnr = 0 })) do
+                names[#names + 1] = client.name
+              end
+              return table.concat(names, " ")
+            end,
+            icon = " ",
+          },
+          "encoding",
+          "fileformat",
+          "filetype",
+        },
+        lualine_y = { "progress" },
+        lualine_z = { "location" },
+      },
+      extensions = { "lazy", "man", "quickfix" },
+    },
+  },
+
   {
     "folke/which-key.nvim",
     event = "VeryLazy",
     opts = {
+      preset = "modern",
+      delay = 300,
       spec = {
-        { "<leader>b", group = "Buffer" },
-        { "<leader>c", group = "Code" },
-        { "<leader>f", group = "查找/文件" },
+        { "<leader>a", group = "AI", mode = { "n", "x" } },
+        { "<leader>b", group = "标签" },
+        { "<leader>c", group = "代码" },
+        { "<leader>f", group = "查找" },
         { "<leader>g", group = "Git" },
-        { "<leader>l", group = "LSP" },
-        { "<leader>q", group = "退出/会话" },
-        { "<leader>t", group = "TODO" },
-        { "<leader>w", group = "保存" },
+        { "<leader>m", group = "Markdown" },
+        { "<leader>q", group = "退出" },
+        { "<leader>s", group = "搜索" },
+        { "<leader>t", group = "终端" },
+        { "<leader>u", group = "开关" },
+        { "<leader>x", group = "诊断" },
+        { "[", group = "上一个" },
+        { "]", group = "下一个" },
+        { "g", group = "跳转" },
       },
     },
-  },
-
-  -- Gitsigns Git 标记
-  {
-    "lewis6991/gitsigns.nvim",
-    event = { "BufReadPre", "BufNewFile" },
-    opts = {
-      signs = {
-        add    = { text = "▎" },
-        change = { text = "▎" },
-        delete = { text = "" },
-      },
-      current_line_blame = true,
+    keys = {
+      { "<leader>?", function() require("which-key").show({ global = false }) end, desc = "当前文件的按键" },
     },
-  },
-
-  -- 文件图标
-  { "nvim-tree/nvim-web-devicons", lazy = true },
-
-  -- Noice 美化通知
-  {
-    "folke/noice.nvim",
-    event = "VeryLazy",
-    dependencies = { "MunifTanjim/nui.nvim", "rcarriga/nvim-notify" },
-    opts = {
-      cmdline = {
-        enabled = false,
-      },
-      messages = {
-        enabled = false,
-      },
-      popupmenu = {
-        enabled = false,
-      },
-      lsp = {
-        override = {
-          ["vim.lsp.util.convert_input_to_markdown_lines"] = true,
-          ["vim.lsp.util.stylize_markdown"]                = true,
-          ["cmp.entry.get_documentation"]                  = true,
-        },
-      },
-      presets = {
-        bottom_search         = false,
-        command_palette       = false,
-        long_message_to_split = true,
-        lsp_doc_border        = true,
-      },
-    },
-    init = function()
-      vim.opt.cmdheight = 1
-    end,
   },
 }

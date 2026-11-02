@@ -1,121 +1,37 @@
--- ╔══════════════════════════════════════════════════════════════╗
--- ║                    编辑器工具插件                            ║
--- ╚══════════════════════════════════════════════════════════════╝
-
+-- 编辑辅助：Git 行标记、自动括号
 return {
-  -- Telescope 模糊搜索
   {
-    "nvim-telescope/telescope.nvim",
-    cmd = "Telescope",
-    dependencies = {
-      "nvim-lua/plenary.nvim",
-      { "nvim-telescope/telescope-fzf-native.nvim", build = "make" },
-    },
-    keys = {
-      { "<leader>ff", "<cmd>Telescope find_files<CR>", desc = "查找文件" },
-      { "<leader>fg", "<cmd>Telescope live_grep<CR>",  desc = "全局搜索" },
-      { "<leader>fb", "<cmd>Telescope buffers<CR>",    desc = "切换 Buffer" },
-      { "<leader>fh", "<cmd>Telescope help_tags<CR>",  desc = "帮助文档" },
-      { "<leader>fr", "<cmd>Telescope oldfiles<CR>",   desc = "最近文件" },
-      { "<leader>fd", "<cmd>Telescope diagnostics<CR>", desc = "诊断列表" },
-      { "<leader>fs", "<cmd>Telescope lsp_document_symbols<CR>", desc = "文档符号" },
-    },
+    "lewis6991/gitsigns.nvim",
+    event = { "BufReadPre", "BufNewFile" },
     opts = {
-      defaults = {
-        prompt_prefix   = "   ",
-        selection_caret = "  ",
-        entry_prefix    = "  ",
-        sorting_strategy  = "ascending",
-        layout_strategy   = "horizontal",
-        layout_config = {
-          horizontal = { prompt_position = "top", preview_width = 0.55 },
-          width  = 0.87,
-          height = 0.80,
-        },
-        file_ignore_patterns = {
-          "node_modules", ".git/", "dist/", "build/",
-          "%.lock", "__pycache__",
-        },
-        mappings = {
-          i = {
-            ["<C-j>"] = "move_selection_next",
-            ["<C-k>"] = "move_selection_previous",
-            ["<Esc>"] = "close",
-          },
-        },
+      signs = {
+        add = { text = "▎" },
+        change = { text = "▎" },
+        delete = { text = "▁" },
+        topdelete = { text = "▔" },
+        changedelete = { text = "▎" },
+        untracked = { text = "▎" },
       },
+      on_attach = function(buf)
+        local gs = require("gitsigns")
+        local function map(mode, lhs, rhs, desc)
+          vim.keymap.set(mode, lhs, rhs, { buffer = buf, desc = desc })
+        end
+        map("n", "]h", function() gs.nav_hunk("next") end, "下一处改动")
+        map("n", "[h", function() gs.nav_hunk("prev") end, "上一处改动")
+        map("n", "<leader>gp", gs.preview_hunk_inline, "预览改动")
+        map({ "n", "x" }, "<leader>gr", ":Gitsigns reset_hunk<cr>", "撤销这处改动")
+        map("n", "<leader>gb", function() gs.blame_line({ full = true }) end, "这一行的提交")
+        map("n", "<leader>gd", gs.diffthis, "与暂存区对比")
+      end,
     },
-    config = function(_, opts)
-      local telescope = require("telescope")
-      telescope.setup(opts)
-      pcall(telescope.load_extension, "fzf")
-    end,
   },
-  -- Autopairs 自动括号
+
   {
-    "windwp/nvim-autopairs",
+    "nvim-mini/mini.pairs",
     event = "InsertEnter",
-    config = function()
-      local autopairs = require("nvim-autopairs")
-      autopairs.setup({ check_ts = true })
-      -- 与 cmp 集成
-      local ok, cmp = pcall(require, "cmp")
-      if ok then
-        local cmp_autopairs = require("nvim-autopairs.completion.cmp")
-        cmp.event:on("confirm_done", cmp_autopairs.on_confirm_done())
-      end
-    end,
-  },
-
-  -- Comment 快捷注释
-  {
-    "numToStr/Comment.nvim",
-    event = { "BufReadPost", "BufNewFile" },
-    opts = {},
-  },
-
-  -- Todo Comments 高亮 TODO/FIXME
-  {
-    "folke/todo-comments.nvim",
-    event = { "BufReadPost", "BufNewFile" },
-    dependencies = { "nvim-lua/plenary.nvim" },
-    opts = {},
-    keys = {
-      { "<leader>ft", "<cmd>TodoTelescope<CR>", desc = "查找 TODO" },
-    },
-  },
-
-  -- Surround 包围操作
-  {
-    "kylechui/nvim-surround",
-    event = "VeryLazy",
-    opts = {},
-  },
-  -- CodeCompanion AI聊天
-  {
-    "olimorris/codecompanion.nvim",
-    version = "^19.0.0",
     opts = {
-      interactions = {
-        chat = {
-          adapter = {
-            name = "deepseek",
-            model = "deepseek-v4-pro"
-          },
-        },
-      },
-    },
-    dependencies = {
-      "nvim-lua/plenary.nvim",
-      "nvim-treesitter/nvim-treesitter",
-      },
-  },
-  -- Lazygit Git管理
-  {
-    "kdheepak/lazygit.nvim",
-    dependencies = { "nvim-lua/plenary.nvim" },
-    keys = {
-      { "<leader>gg", "<cmd>LazyGit<cr>", desc = "打开 LazyGit" },
+      modes = { insert = true, command = false, terminal = false },
     },
   },
 }

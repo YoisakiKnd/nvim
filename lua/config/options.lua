@@ -1,61 +1,80 @@
--- ╔══════════════════════════════════════════════════════════════╗
--- ║                     Neovim 基础选项                         ║
--- ╚══════════════════════════════════════════════════════════════╝
+vim.g.mapleader = " "
+vim.g.maplocalleader = "\\"
+
+-- 保存时自动格式化，<leader>uf 切换
+vim.g.autoformat = true
 
 local opt = vim.opt
 
--- ── Leader 键 ────────────────────────────────────────────────
-vim.g.mapleader      = " "
-vim.g.maplocalleader = "\\"
+opt.number = true
+opt.relativenumber = false
+opt.cursorline = true
+opt.signcolumn = "yes"
+opt.termguicolors = true
+opt.mouse = "a"
+opt.showmode = false -- 状态栏已显示模式
+opt.laststatus = 3 -- 全局状态栏，类似 VS Code 底栏
+opt.cmdheight = 1
+opt.winborder = "rounded"
+opt.pumheight = 12
+opt.scrolloff = 6
+opt.sidescrolloff = 8
+opt.splitright = true
+opt.splitbelow = true
+opt.splitkeep = "screen"
+opt.fillchars = { eob = " ", fold = " ", foldopen = "", foldclose = "", foldsep = " " }
+opt.list = true
+opt.listchars = { tab = "» ", trail = "·", nbsp = "␣" }
+opt.wrap = false
+opt.linebreak = true
+opt.breakindent = true
 
--- ── 界面 ─────────────────────────────────────────────────────
-opt.number         = true          -- 行号
-opt.relativenumber = true          -- 相对行号
-opt.cursorline     = true          -- 高亮当前行
-opt.signcolumn     = "yes"         -- 始终显示标记列
-opt.termguicolors  = true          -- 真彩色
-opt.showmode       = false         -- 状态栏已有模式信息
-opt.pumheight      = 10            -- 补全菜单最大高度
-opt.cmdheight      = 1
-opt.laststatus     = 3             -- 全局状态栏
-opt.scrolloff      = 8             -- 光标上下保留行数
-opt.sidescrolloff  = 8
-
--- ── 缩进 ─────────────────────────────────────────────────────
-opt.expandtab   = true             -- 用空格替代 Tab
-opt.shiftwidth  = 2                -- 自动缩进宽度
-opt.tabstop     = 2                -- Tab 显示宽度
-opt.softtabstop = 2
+opt.expandtab = true
+opt.shiftwidth = 4
+opt.tabstop = 4
+opt.softtabstop = 4
+opt.shiftround = true
 opt.smartindent = true
 
--- ── 搜索 ─────────────────────────────────────────────────────
-opt.ignorecase = true              -- 搜索忽略大小写
-opt.smartcase  = true              -- 含大写时区分大小写
-opt.hlsearch   = true              -- 高亮搜索结果
-opt.incsearch  = true              -- 增量搜索
+opt.ignorecase = true
+opt.smartcase = true
+opt.inccommand = "split"
+opt.grepprg = "rg --vimgrep --smart-case"
+opt.grepformat = "%f:%l:%c:%m"
 
--- ── 文件 ─────────────────────────────────────────────────────
-opt.backup      = false
-opt.writebackup = false
-opt.swapfile    = false
-opt.undofile    = true             -- 持久化撤销历史
-opt.fileencoding = "utf-8"
-
--- ── 分屏 ─────────────────────────────────────────────────────
-opt.splitbelow = true              -- 水平分屏在下方
-opt.splitright = true              -- 垂直分屏在右方
-
--- ── 杂项 ─────────────────────────────────────────────────────
-opt.mouse       = "a"              -- 启用鼠标
-opt.clipboard   = "unnamedplus"    -- 系统剪贴板
-opt.updatetime  = 250              -- 更快的 CursorHold
-opt.timeoutlen  = 300              -- 按键序列超时
+opt.undofile = true
+opt.swapfile = false
+opt.confirm = true
+opt.updatetime = 200
+opt.timeoutlen = 400
+opt.virtualedit = "block"
 opt.completeopt = "menu,menuone,noselect"
-opt.wrap        = false            -- 不自动换行
-opt.fillchars   = { eob = " " }   -- 隐藏空行波浪号
+opt.shortmess:append({ W = true, I = true, c = true, C = true })
 
--- ── Neovide GUI 专属设置 ─────────────────────────────────────
-if vim.g.neovide then
-  vim.g.neovide_opacity = 0.65 -- 设置不透明度 (0.0 完全透明 - 1.0 完全不透明)
-  vim.g.neovide_window_blurred = true -- 启用毛玻璃模糊效果
-end
+-- 用 Tree-sitter 折叠，打开文件时默认全部展开
+opt.foldlevel = 99
+opt.foldlevelstart = 99
+opt.foldmethod = "expr"
+opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+opt.foldtext = ""
+
+-- 系统剪贴板放到启动之后再接入，避免拖慢启动（SSH 下走 OSC 52）
+vim.schedule(function()
+  opt.clipboard = "unnamedplus"
+end)
+
+vim.diagnostic.config({
+  severity_sort = true,
+  underline = true,
+  update_in_insert = false,
+  virtual_text = { spacing = 2, source = "if_many", prefix = "●" },
+  float = { source = "if_many" },
+  signs = {
+    text = {
+      [vim.diagnostic.severity.ERROR] = " ",
+      [vim.diagnostic.severity.WARN] = " ",
+      [vim.diagnostic.severity.INFO] = " ",
+      [vim.diagnostic.severity.HINT] = " ",
+    },
+  },
+})
