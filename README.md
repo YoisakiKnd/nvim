@@ -39,13 +39,12 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
 脚本会：
-- 用 Scoop 安装 Neovim、git、ripgrep、fd、lazygit（没有 Scoop 时先询问是否安装）
+- 用 Scoop 安装 Neovim、git、ripgrep、fd、lazygit、tree-sitter（没有 Scoop 时先询问是否安装）
 - 安装缺少的 Node.js、Python、Go、JDK 21；已有 JDK 但低于 21 时只提示，不改 `JAVA_HOME`
-- 克隆配置到 `%LOCALAPPDATA%\nvim-lite`，装好插件和语言服务后启动
+- 没有 MSVC 时安装 `mingw-winlibs`（gcc）用来编译语法解析器，不需要 Visual Studio
+- 克隆配置到 `%LOCALAPPDATA%\nvim-lite`，装好插件、解析器和语言服务后启动
 
-默认不编译语法解析器。想要编译时加 `-WithParsers`：会安装 tree-sitter，检查 MSVC，缺少时询问是否用 winget 安装 VS Build Tools（约 2–6 GB）。
-
-可以重复运行，已安装的会跳过。其他参数：`-Languages java,python` 只装部分工具链，`-AppName nvim` 直接作为默认配置，`-InstallBuildTools` 配合 `-WithParsers` 不询问直接装编译器，`-NoLaunch` 装完不启动。
+可以重复运行，已安装的会跳过。参数：`-NoParsers` 不编译解析器（不装 tree-sitter 和 gcc），`-Languages java,python` 只装部分工具链，`-AppName nvim` 直接作为默认配置，`-NoLaunch` 装完不启动。
 
 ### 语法解析器（可选）
 
@@ -53,7 +52,10 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 编译解析器后多出来的：Markdown 代码块里的 Java/Go 等代码着色、按语法结构折叠（否则按缩进）、语言服务启动前的几秒也有精确高亮。
 
-检测到 tree-sitter 命令行（Windows 上还要检测到 MSVC）时，启动后会在后台自动编译，也可以手动运行 `:TSInstallAll`。
+检测到 tree-sitter 命令行和 C 编译器时，启动后会在后台自动编译，也可以手动运行 `:TSInstallAll`。编译器：
+
+- macOS：Xcode 命令行工具（`xcode-select --install`）
+- Windows：有 MSVC 就用 MSVC；没有的话**不需要装 Visual Studio**，用 Scoop 的 `mingw-winlibs`（gcc，约 110 MB 压缩包）。配置只在编译解析器时临时设置 `CC=gcc`，不影响 cargo 等其他构建。注意 Scoop 里普通的 `mingw` 包编译部分解析器会失败，要用 `mingw-winlibs`
 
 ## 安装
 

@@ -3,10 +3,10 @@
     在 Windows 上安装这套 Neovim 配置及其依赖。
 
 .DESCRIPTION
-    1. 用 Scoop 安装 Neovim、git、ripgrep、fd、lazygit
+    1. 用 Scoop 安装 Neovim、git、ripgrep、fd、lazygit、tree-sitter
     2. 按需安装语言工具链（Node.js、Python、Go、JDK 21），已有的跳过
-    3. 加 -WithParsers 时：安装 tree-sitter，检查 C 编译器（MSVC），缺少时询问是否用 winget 安装 VS Build Tools。
-       默认不编译语法解析器：使用 Neovim 自带的正则高亮和语言服务的语义高亮
+    3. 编译语法解析器用的 C 编译器：已有 MSVC 就用 MSVC；否则用 Scoop 安装 mingw-winlibs（gcc，
+       约 110 MB 压缩包，不需要 Visual Studio）。加 -NoParsers 则都不装，只用正则高亮 + 语言服务的语义高亮
     4. 把配置克隆到 %LOCALAPPDATA%\<AppName>，默认 nvim-lite，不影响现有的 %LOCALAPPDATA%\nvim
     5. 在无界面模式下装好插件、语法解析器和语言服务，然后启动 Neovim
 
@@ -16,8 +16,8 @@
     powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 .EXAMPLE
-    # 只装 Java 和 Python 工具链；编译语法解析器，缺 VS Build Tools 时直接安装
-    powershell -ExecutionPolicy Bypass -File .\install.ps1 -Languages java,python -WithParsers -InstallBuildTools
+    # 只装 Java 和 Python 工具链，不编译语法解析器
+    powershell -ExecutionPolicy Bypass -File .\install.ps1 -Languages java,python -NoParsers
 #>
 [CmdletBinding()]
 param(
@@ -26,10 +26,8 @@ param(
     # 需要的语言工具链，本机已有的不会重复安装
     [ValidateSet('node', 'python', 'go', 'java')]
     [string[]]$Languages = @('node', 'python', 'go', 'java'),
-    # 编译 Tree-sitter 语法解析器（需要 MSVC）：代码块着色、按语法结构折叠
-    [switch]$WithParsers,
-    # 配合 -WithParsers：缺少 C 编译器时直接安装 VS Build Tools，不再询问
-    [switch]$InstallBuildTools,
+    # 不编译 Tree-sitter 语法解析器（不装 tree-sitter 和 gcc）：代码块不着色、折叠按缩进
+    [switch]$NoParsers,
     # 装完不启动 Neovim
     [switch]$NoLaunch,
     [string]$Repo = 'https://github.com/YoisakiKnd/nvim.git'
@@ -137,7 +135,7 @@ Write-Step '安装基础工具'
 Install-ScoopApp 'git' 'git'
 Add-ScoopBucket 'extras'
 $tools = [ordered]@{ 'neovim' = 'nvim'; 'ripgrep' = 'rg'; 'fd' = 'fd'; 'lazygit' = 'lazygit' }
-if ($WithParsers) { $tools['tree-sitter'] = 'tree-sitter' }
+if (-not $NoParsers) { $tools['tree-sitter'] = 'tree-sitter' }
 foreach ($app in $tools.Keys) {
     Install-ScoopApp $app $tools[$app]
 }
@@ -187,27 +185,21 @@ foreach ($language in $Languages) {
 
 # ── 3. C 编译器（编译语法解析器用） ───────────────────────────
 Write-Step '检查 C 编译器'
-if (-not $WithParsers) {
-    Write-Ok '跳过：不编译语法解析器，使用正则高亮 + 语言服务的语义高亮（需要时加 -WithParsers 重新运行）'
+if ($NoParsers) {
+    Write-Ok '跳过：不编译语法解析器，使用正则高亮 + 语言服务的语义高亮'
 } elseif ($env:CC) {
     Write-Ok "使用环境变量 CC=$env:CC"
 } elseif (Test-Msvc) {
     Write-Ok '找到 MSVC'
 } else {
-    Write-Note 'tree-sitter 需要 MSVC 编译语法解析器。不装也能用，只是代码块不着色、折叠按缩进。'
-    $install = $InstallBuildTools
-    if (-not $install) {
-        $install = Confirm-Action '用 winget 安装 Visual Studio 2022 Build Tools（C++ 工具，约 2–6 GB）吗？'
+    # 不装 Visual Studio，用 gcc。nvim 只在编译解析器时临时设置 CC=gcc，不影响其他构建。
+    # 普通的 mingw 包编译部分解析器会失败，所以用 mingw-winlibs
+    if (Test-ScoopApp 'mingw') {
+        Write-Note '检测到 Scoop 的 mingw 包，它的 gcc 编译部分解析器会失败。建议 scoop uninstall mingw'
     }
-    if ($install) {
-        if (-not (Test-Command 'winget')) { throw '没有 winget，请从 Microsoft Store 安装"应用安装程序"后重试' }
-        winget install --id Microsoft.VisualStudio.2022.BuildTools --exact --source winget `
-            --accept-package-agreements --accept-source-agreements `
-            --override '--passive --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
-        if (Test-Msvc) { Write-Ok 'MSVC 安装完成' } else { Write-Note 'Build Tools 安装似乎没有完成，稍后可在 nvim 里运行 :TSInstallAll 重试' }
-    } else {
-        Write-Note '已跳过。装好编译器后在 nvim 里运行 :TSInstallAll'
-    }
+    Install-ScoopApp 'mingw-winlibs'
+    if (Test-Command 'gcc') { Write-Ok "gcc：$((Get-Command gcc).Source)" }
+    else { Write-Note '没有找到 gcc，解析器暂不编译；重开终端后在 nvim 里运行 :TSInstallAll' }
 }
 
 # ── 4. 配置文件 ───────────────────────────────────────────────
@@ -237,7 +229,7 @@ Write-Step '安装插件'
 nvim --headless '+Lazy! sync' +qa
 if ($LASTEXITCODE -ne 0) { throw '插件安装失败' }
 
-if ($WithParsers -and (Test-Command 'tree-sitter')) {
+if (-not $NoParsers -and (Test-Command 'tree-sitter')) {
     Write-Step '编译语法解析器（第一次需要几分钟）'
     nvim --headless '+TSInstallAll' +qa
     if ($LASTEXITCODE -ne 0) { Write-Note '部分解析器编译失败，可在 nvim 里运行 :checkhealth nvim-treesitter 查看原因' }
