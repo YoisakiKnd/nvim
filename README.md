@@ -19,7 +19,7 @@
 | Java / Spring Boot | **JDK 21+**（jdtls 本身要求），Maven 或 Gradle | jdtls（自带 Lombok 支持）、lemminx（pom.xml）、yaml-language-server（application.yml） |
 | Python | python3 | basedpyright、ruff（检查 + 格式化） |
 | Go | go | gopls、goimports、gofumpt |
-| JavaScript / TypeScript / 前端 | node + npm | vtsls、json/html/css 语言服务、prettier |
+| JavaScript / TypeScript / 前端 | node + npm | vtsls、json/html/css 语言服务、Emmet、prettier |
 | Markdown | — | marksman |
 
 ### macOS

@@ -17,6 +17,7 @@ local tools = {
   { "yaml-language-server", needs = { "npm" } }, -- application.yml 等
   { "html-lsp", needs = { "npm" } },
   { "css-lsp", needs = { "npm" } },
+  { "emmet-language-server", needs = { "npm" } }, -- Emmet：! 生成 HTML 骨架、ul>li*3 等缩写
   { "prettier", needs = { "npm" } },
 }
 
