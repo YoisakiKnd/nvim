@@ -58,17 +58,33 @@ function Update-SessionPath {
     if ($javaHome) { $env:JAVA_HOME = $javaHome }
 }
 
-function Get-ScoopRoot {
-    if ($env:SCOOP) { return $env:SCOOP }
-    return Join-Path $env:USERPROFILE 'scoop'
+# 让 Scoop 自己回答装在哪：兼容自定义安装目录（SCOOP）和 -g 全局安装
+function Get-ScoopAppPath([string]$App) {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { $path = scoop prefix $App 6>$null 2>$null | Select-Object -Last 1 }
+    catch { $path = $null }
+    finally { $ErrorActionPreference = $previous }
+    if ($path -and (Test-Path ([string]$path).Trim())) { return ([string]$path).Trim() }
+
+    $roots = @($env:SCOOP, (Join-Path $env:USERPROFILE 'scoop'), $env:SCOOP_GLOBAL, (Join-Path $env:ProgramData 'scoop'))
+    foreach ($root in ($roots | Where-Object { $_ })) {
+        $current = Join-Path $root "apps\$App\current"
+        if (Test-Path $current) { return $current }
+    }
+    return $null
 }
 
 function Test-ScoopApp([string]$App) {
-    return Test-Path (Join-Path (Get-ScoopRoot) "apps\$App\current")
+    return [bool](Get-ScoopAppPath $App)
 }
 
 function Add-ScoopBucket([string]$Bucket) {
-    if (-not (Test-Path (Join-Path (Get-ScoopRoot) "buckets\$Bucket"))) {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { $names = @(scoop bucket list 6>$null | ForEach-Object { $_.Name }) }
+    finally { $ErrorActionPreference = $previous }
+    if ($names -notcontains $Bucket) {
         scoop bucket add $Bucket
     }
 }
@@ -84,7 +100,9 @@ function Install-ScoopApp([string]$App, [string]$Command = '') {
         return
     }
     scoop install $App
-    if (-not (Test-ScoopApp $App)) { throw "Scoop 安装 $App 失败" }
+    if (-not (Test-ScoopApp $App)) {
+        throw "Scoop 安装 $App 失败。请把 scoop prefix $App 和 scoop list $App 的输出发给维护者"
+    }
     Update-SessionPath
 }
 
